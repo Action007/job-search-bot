@@ -27,21 +27,38 @@ const REJECT_SENIORITY = [
 // Stack rejects (only when these are the primary/only stack)
 const REJECT_STACK = [
   'php developer',
+  'php engineer',
   'laravel developer',
+  'laravel engineer',
+
   'ruby on rails',
   'ruby developer',
-  'java developer',
-  'java engineer',
-  'spring boot developer',
+  'ruby engineer',
+  'rails developer',
+  'rails engineer',
+
   '.net developer',
+  '.net engineer',
   'c# developer',
+  'c# engineer',
   'asp.net developer',
+  'asp.net engineer',
+
   'android developer',
+  'android engineer',
   'ios developer',
+  'ios engineer',
   'swift developer',
+  'swift engineer',
   'flutter developer',
+  'flutter engineer',
+  'mobile developer',
+  'mobile engineer',
+
   'embedded software',
+  'embedded engineer',
   'firmware engineer',
+  'firmware developer',
 ];
 
 // On-site detection keywords

@@ -28,11 +28,12 @@ async function createContextAndPage(browser: any, cookies: any[]) {
 }
 
 async function scroll(page: Page): Promise<void> {
-  for (let i = 0; i < 3; i++) {
+  // Increased to 8 scroll cycles to load enough pages for ~60 jobs
+  for (let i = 0; i < 8; i++) {
     await page.evaluate(
-      () => window.scrollBy(0, 300 + Math.random() * 200)
+      () => window.scrollBy(0, 500 + Math.random() * 200)
     );
-    await delay(400, 900);
+    await delay(600, 1200);
   }
 }
 
@@ -59,7 +60,7 @@ function buildUrl(keywords: string, location: string): string {
 async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
   return page.evaluate((sel) => {
     return Array.from(document.querySelectorAll(sel.jobCard))
-      .slice(0, 25)
+      .slice(0, 60)
       .map((card) => ({
         title: card.querySelector(sel.title)?.textContent?.trim() ?? null,
         company:
@@ -173,7 +174,7 @@ export async function enrichWithDescriptions(
            .trim()
            .slice(0, 5_000);
       }
-      logger.debug({ url: job.url }, 'fetched description');
+      logger.info({ url: job.url }, 'hydrated full description');
       fetchCount++;
     } catch {
       logger.debug({ url: job.url }, 'failed to fetch description, skipping');

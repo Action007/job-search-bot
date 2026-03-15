@@ -66,6 +66,7 @@ score_adjustment (integer between -20 and 20)
 reasoning_short (string, max 2 sentences)`;
 
   try {
+    logger.info({ target: title, model: config.LLM_MODEL }, 'Evaluating parsed context securely');
     const res = await fetch(`${config.OPENAI_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -75,7 +76,6 @@ reasoning_short (string, max 2 sentences)`;
       body: JSON.stringify({
         model: config.LLM_MODEL,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
         response_format: { type: 'json_object' },
       }),
     });

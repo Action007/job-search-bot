@@ -14,14 +14,33 @@ export const SELECTORS = {
 };
 
 export const SEARCH_QUERIES: SearchQuery[] = [
-  { keywords: 'React Developer', location: 'Cyprus' },
-  { keywords: 'Frontend Developer TypeScript', location: 'Cyprus' },
-  { keywords: 'React Developer', location: 'Malta' },
-  { keywords: 'Frontend Developer', location: 'Malta' },
-  { keywords: 'React TypeScript Remote', location: 'Europe' },
-  { keywords: 'Full Stack Node.js TypeScript', location: 'Worldwide' },
-  { keywords: 'React Developer Remote', location: 'United States' },
-  { keywords: 'NestJS Developer', location: 'Worldwide' },
-  { keywords: 'Next.js Developer', location: 'Europe' },
-  { keywords: 'Frontend Developer', location: 'Ukraine' },
+  // Cyprus
+  { keywords: 'Frontend Developer React', location: 'Cyprus' },
+  { keywords: 'React Next.js TypeScript', location: 'Cyprus' },
+  { keywords: 'Full Stack Node.js TypeScript', location: 'Cyprus' },
+  { keywords: 'NestJS Developer', location: 'Cyprus' },
+
+  // Malta
+  { keywords: 'Frontend Developer React', location: 'Malta' },
+  { keywords: 'React Next.js TypeScript', location: 'Malta' },
+  { keywords: 'Full Stack Node.js TypeScript', location: 'Malta' },
+  { keywords: 'NestJS Developer', location: 'Malta' },
+
+  // Ukraine
+  { keywords: 'Frontend Developer React', location: 'Ukraine' },
+  { keywords: 'React Next.js TypeScript', location: 'Ukraine' },
+  { keywords: 'Full Stack Node.js TypeScript', location: 'Ukraine' },
+  { keywords: 'NestJS Developer', location: 'Ukraine' },
+
+  // Europe (EEA)
+  { keywords: 'Frontend Developer React', location: 'European Economic Area' },
+  { keywords: 'React Next.js TypeScript', location: 'European Economic Area' },
+  { keywords: 'Full Stack Node.js TypeScript', location: 'European Economic Area' },
+  { keywords: 'NestJS Developer', location: 'European Economic Area' },
+
+  // United States
+  { keywords: 'Frontend Developer React Remote', location: 'United States' },
+  { keywords: 'React Next.js TypeScript Remote', location: 'United States' },
+  { keywords: 'Full Stack Node.js TypeScript Remote', location: 'United States' },
+  { keywords: 'NestJS Developer Remote', location: 'United States' },
 ];

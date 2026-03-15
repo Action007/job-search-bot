@@ -96,10 +96,11 @@ export async function runPipeline(
       (j) => j.score >= 35 // High, Maybe, and borderline Skip
     );
 
-    logger.info({ shortlisted: shortlist.length }, 'Base scoring complete, moving to enrichment');
+    logger.info({ shortlisted: shortlist.length }, 'Base scoring complete, moving to description hydration');
 
     // 7. Enrinch Descriptions
     await enrichWithDescriptions(shortlist, config.MAX_LLM_EVALS_PER_RUN);
+    logger.info('Description hydration complete, moving to AI evaluation phase');
 
     // 8. Execute LLM evaluations
     const scored: ScoredJob[] = [];
@@ -107,6 +108,8 @@ export async function runPipeline(
 
     for (const job of preliminaryScored) {
       if (job.score >= 35 && llmEvals < config.MAX_LLM_EVALS_PER_RUN && job.description) {
+        logger.info({ title: job.title, company: job.company }, 'Sending job context to AI Evaluator');
+        
         const llmResult = await evaluateJobContext(
           job.title,
           job.company,
@@ -123,7 +126,15 @@ export async function runPipeline(
         job.tier = getTier(job.score);
 
         llmEvals++;
-        logger.debug({ url: job.url, adjustment: llmResult.score_adjustment, newScore: job.score }, 'LLM evaluated');
+        logger.info(
+          { 
+            url: job.url, 
+            score_effect: llmResult.score_adjustment, 
+            new_score: job.score,
+            reasoning: llmResult.reasoning_short 
+          }, 
+          'AI Evaluator complete'
+        );
       }
 
       saveJob(job);
