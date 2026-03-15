@@ -1,0 +1,30 @@
+{
+  "name": "linkedin-job-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "start": "ts-node src/scheduler.ts",
+    "pipeline": "ts-node src/pipeline/index.ts",
+    "save-session": "ts-node src/linkedin/saveSession.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^17.3.1",
+    "node-cron": "^4.2.1",
+    "pino": "^10.3.1",
+    "playwright": "^1.58.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
