@@ -10,6 +10,7 @@ function formatJob(i: number, j: TelegramDigestItem): string {
     j.stack ? `   🔧 ${j.stack}` : '',
     `   ⭐ Score: ${j.score}/100`,
     `   🔗 ${j.url}`,
+    `   Reply: /save ${j.short_id} | /applied ${j.short_id} | /skip ${j.short_id}`,
   ]
     .filter(Boolean)
     .join('\n');

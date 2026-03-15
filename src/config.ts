@@ -39,8 +39,13 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   LOG_LEVEL: z.string().default('info'),
-});
 
+  // V2 LLM
+  OPENAI_API_KEY: z.string().default(''), // Empty allowed for V1 fallback
+  OPENAI_API_URL: z.string().default('https://api.openai.com/v1'),
+  LLM_MODEL: z.string().default('gpt-5-nano'),
+  MAX_LLM_EVALS_PER_RUN: z.coerce.number().default(45),
+});
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {

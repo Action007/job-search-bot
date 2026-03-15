@@ -3,6 +3,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS jobs (
   id            TEXT PRIMARY KEY,
+  short_id      TEXT UNIQUE NOT NULL,
   url           TEXT NOT NULL UNIQUE,
   url_hash      TEXT NOT NULL UNIQUE,
   title_co_hash TEXT NOT NULL,
@@ -43,6 +44,21 @@ CREATE TABLE IF NOT EXISTS telegram_messages (
   sent_at    TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS user_feedback (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id     TEXT,
+  action     TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bot_state (
+  key        TEXT PRIMARY KEY,
+  value      TEXT
+);
+
+PRAGMA user_version = 2;
+
 CREATE INDEX IF NOT EXISTS idx_jobs_url_hash  ON jobs(url_hash);
 CREATE INDEX IF NOT EXISTS idx_jobs_title_co  ON jobs(title_co_hash);
+CREATE INDEX IF NOT EXISTS idx_jobs_short_id  ON jobs(short_id);
 CREATE INDEX IF NOT EXISTS idx_sent_sent_at   ON sent_jobs(sent_at);

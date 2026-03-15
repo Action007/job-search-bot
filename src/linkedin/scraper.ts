@@ -12,6 +12,21 @@ async function delay(min: number, max: number): Promise<void> {
   await new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 }
 
+async function createContextAndPage(browser: any, cookies: any[]) {
+  const ctx = await browser.newContext({
+    userAgent: UA,
+    viewport: { width: 1366, height: 768 },
+  });
+  await ctx.addCookies(cookies);
+
+  const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  });
+
+  return { ctx, page };
+}
+
 async function scroll(page: Page): Promise<void> {
   for (let i = 0; i < 3; i++) {
     await page.evaluate(
@@ -70,16 +85,7 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
     args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
   });
 
-  const ctx = await browser.newContext({
-    userAgent: UA,
-    viewport: { width: 1366, height: 768 },
-  });
-  await ctx.addCookies(cookies);
-
-  const page = await ctx.newPage();
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-  });
+  const { page } = await createContextAndPage(browser, cookies);
 
   const all: RawLinkedInJob[] = [];
 
@@ -120,4 +126,59 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
 
   await browser.close();
   return all;
+}
+
+export async function enrichWithDescriptions(
+  jobs: import('../types').NormalizedJob[],
+  maxFetches: number = 45
+): Promise<void> {
+  const cookies = JSON.parse(
+    readFileSync(config.LINKEDIN_COOKIES_PATH, 'utf-8')
+  );
+
+  const browser = await chromium.launch({
+    headless: !config.HEADED,
+    args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+  });
+
+  const { page } = await createContextAndPage(browser, cookies);
+
+  let fetchCount = 0;
+  for (const job of jobs) {
+    if (fetchCount >= maxFetches) break;
+    if (!job.url || job.description !== null) continue; // Skip if no URL or already has description
+
+    try {
+      await page.goto(job.url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20_000,
+      });
+      await delay(2_000, 4_000);
+      
+      const desc = await page
+        .locator(SELECTORS.description)
+        .first()
+        .textContent({ timeout: 5_000 })
+        .catch(() => null);
+        
+      if (desc) {
+         // Perform HTML stripping manually inside string scope to decouple from generic parser logic
+        job.description = desc
+           .replace(/<br\s*\/?>/gi, '\n')
+           .replace(/<\/p>/gi, '\n')
+           .replace(/<[^>]+>/g, ' ')
+           .replace(/&nbsp;/g, ' ')
+           .replace(/&amp;/g, '&')
+           .replace(/\s+/g, ' ')
+           .trim()
+           .slice(0, 5_000);
+      }
+      logger.debug({ url: job.url }, 'fetched description');
+      fetchCount++;
+    } catch {
+      logger.debug({ url: job.url }, 'failed to fetch description, skipping');
+    }
+  }
+
+  await browser.close();
 }

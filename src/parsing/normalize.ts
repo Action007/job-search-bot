@@ -35,10 +35,13 @@ export function normalizeJob(
     ? `https://www.linkedin.com/jobs/view/${idMatch[1]}/`
     : raw.url;
 
+  const hashString = urlHash(canonicalUrl);
+
   return {
     id: jobId(canonicalUrl),
+    short_id: hashString.slice(0, 6),
     url: canonicalUrl,
-    url_hash: urlHash(canonicalUrl),
+    url_hash: hashString,
     title_co_hash: tcHash(raw.title, raw.company ?? ''),
     title: raw.title.trim().slice(0, 200),
     company: (raw.company ?? '').trim().slice(0, 100),

@@ -9,6 +9,7 @@ export interface RawLinkedInJob {
 
 export interface NormalizedJob {
   id: string;
+  short_id: string;
   url: string;
   url_hash: string;
   title_co_hash: string;
@@ -27,6 +28,7 @@ export interface ScoredJob extends NormalizedJob {
 }
 
 export interface TelegramDigestItem {
+  short_id: string;
   title: string;
   company: string;
   location: string;

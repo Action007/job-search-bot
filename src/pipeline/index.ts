@@ -3,14 +3,15 @@ import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { checkCookieAge } from '../linkedin/sessionCheck';
-import { runScraper } from '../linkedin/scraper';
+import { runScraper, enrichWithDescriptions } from '../linkedin/scraper';
 import { normalizeJob, detectStack } from '../parsing/normalize';
 import { dedup } from './dedup';
 import { isHardReject } from '../filter/hardReject';
 import { scoreJob, getTier } from '../filter/scorer';
+import { evaluateJobContext } from '../filter/llmScorer';
 import { saveJob, markSent, createRun, completeRun } from '../db/queries';
-import { sendAlert, sendDigest } from '../telegram/sender';
 import { ScoredJob, TelegramDigestItem, RunStats } from '../types';
+import { sendAlert, sendDigest } from '../telegram/sender';
 
 const LOCK = '/tmp/linkedin-bot.lock';
 
@@ -63,35 +64,79 @@ export async function runPipeline(
     const unique = dedup(normalized);
     logger.info({ unique: unique.length }, 'Dedup complete');
 
-    // 5. Hard reject + score
-    const scored: ScoredJob[] = [];
+    // 5. Stage 1: Base ruling
+    const preliminaryScored: ScoredJob[] = [];
+    const rejectedBuffer: ScoredJob[] = [];
+
     for (const job of unique) {
       if (isHardReject(job.title, job.description ?? '', job.location)) {
-        // Store rejected jobs for audit, never send
-        const rejected: ScoredJob = {
+        rejectedBuffer.push({
           ...job,
           score: -1,
           tier: 'reject',
           stack: detectStack(job.title, job.description ?? ''),
-        };
-        saveJob(rejected);
+        });
       } else {
         const score = scoreJob(
           job.title,
           job.location,
           job.description ?? ''
         );
-        const tier = getTier(score);
-        const stack = detectStack(job.title, job.description ?? '');
-        const scoredJob: ScoredJob = { ...job, score, tier, stack };
-        saveJob(scoredJob);
-        scored.push(scoredJob);
+        preliminaryScored.push({
+          ...job,
+          score,
+          tier: getTier(score),
+          stack: detectStack(job.title, job.description ?? ''),
+        });
       }
     }
 
-    logger.info({ scored: scored.length }, 'Scoring complete');
+    // 6. Stage 2: Select Shortlist for LLM Evaluation
+    const shortlist = preliminaryScored.filter(
+      (j) => j.score >= 35 // High, Maybe, and borderline Skip
+    );
 
-    // 6. Filter sendable (high + maybe)
+    logger.info({ shortlisted: shortlist.length }, 'Base scoring complete, moving to enrichment');
+
+    // 7. Enrinch Descriptions
+    await enrichWithDescriptions(shortlist, config.MAX_LLM_EVALS_PER_RUN);
+
+    // 8. Execute LLM evaluations
+    const scored: ScoredJob[] = [];
+    let llmEvals = 0;
+
+    for (const job of preliminaryScored) {
+      if (job.score >= 35 && llmEvals < config.MAX_LLM_EVALS_PER_RUN && job.description) {
+        const llmResult = await evaluateJobContext(
+          job.title,
+          job.company,
+          job.location,
+          job.description,
+          job.score
+        );
+
+        job.score += llmResult.score_adjustment;
+
+        // V2 context bounds
+        if (job.score > 100) job.score = 100;
+        if (job.score < 0) job.score = 0;
+        job.tier = getTier(job.score);
+
+        llmEvals++;
+        logger.debug({ url: job.url, adjustment: llmResult.score_adjustment, newScore: job.score }, 'LLM evaluated');
+      }
+
+      saveJob(job);
+      scored.push(job);
+    }
+
+    for (const rejected of rejectedBuffer) {
+      saveJob(rejected);
+    }
+
+    logger.info({ finalScored: scored.length, llmEvals }, 'LLM scoring pass complete');
+
+    // 9. Filter sendable (high + maybe)
     const sendable = scored.filter(
       (j) => j.tier === 'high' || j.tier === 'maybe'
     );
@@ -106,6 +151,7 @@ export async function runPipeline(
 
     // 7. Build digest items
     const digestItems: TelegramDigestItem[] = sendable.map((j) => ({
+      short_id: j.short_id,
       title: j.title,
       company: j.company,
       location: j.location,
