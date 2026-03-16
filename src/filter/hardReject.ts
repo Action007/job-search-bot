@@ -28,7 +28,24 @@ const REJECT_SENIORITY = [
   'principal software engineer',
   'vp of engineering',
   'director of engineering',
-  'head of engineering'
+  'head of engineering',
+  'engineering manager',
+  'software engineering manager',
+  'cto',
+  'chief technology officer'
+];
+
+// Clearance & Citizenship rejects
+const REJECT_CLEARANCE = [
+  'security clearance',
+  'active secret clearance',
+  'top secret clearance',
+  'ts/sci',
+  'us citizenship required',
+  'must be a us citizen',
+  'must be a u.s. citizen',
+  'requires u.s. citizenship',
+  'only u.s. citizens'
 ];
 
 // Stack rejects (only when these are the primary/only stack)
@@ -79,6 +96,38 @@ const REJECT_STACK = [
   'c++ engineer',
   'ux designer',
   'ui designer',
+  
+  // Additional stacks
+  'python developer',
+  'python engineer',
+  'django developer',
+  'golang developer',
+  'golang engineer',
+  'go developer',
+  'go engineer',
+  'rust developer',
+  'rust engineer',
+  'angular developer',
+  'angular engineer',
+  'vue developer',
+  'vue engineer',
+  
+  // Non-software-dev roles
+  'data scientist',
+  'data engineer',
+  'machine learning',
+  'ml engineer',
+  'ai engineer',
+  'qa engineer',
+  'qa analyst',
+  'qa automation',
+  'sdet',
+  'systems administrator',
+  'devops engineer',
+  'site reliability engineer',
+  'sre engineer',
+  'salesforce developer',
+  'servicenow developer'
 ];
 
 // On-site detection keywords
@@ -109,6 +158,10 @@ function seniorityReject(text: string): boolean {
 
 function stackReject(text: string): boolean {
   return REJECT_STACK.some((kw) => text.includes(kw));
+}
+
+function clearanceReject(text: string): boolean {
+  return REJECT_CLEARANCE.some((kw) => text.includes(kw));
 }
 
 function locationReject(
@@ -144,6 +197,7 @@ export function isHardReject(
     languageReject(text) ||
     seniorityReject(text) ||
     stackReject(text) ||
+    clearanceReject(text) ||
     locationReject(title, description, location)
   );
 }
