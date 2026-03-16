@@ -57,6 +57,11 @@ ${truncatedDesc}
 Candidate CV:
 ${cvText}
 
+CRITICAL SCORING RULES FOR SENIORITY & PAY:
+1. The candidate officially has 4+ years of experience but is willing and able to "finesse" their way into "Senior" roles (or roles asking for 5-6 years). DO NOT heavily penalize standard "Senior" titles.
+2. Filter by Compensation: If the job is a "True Senior" role with heavily stated high compensation (e.g., > $40/hr, or > $80k-$90k USD/yr) or stringently demands 8+ years of enterprise architecture, PENALIZE IT HEAVILY (-15 to -20). These are out of the candidate's league.
+3. If the compensation is modest ($30-$40/hr, €50k-€80k, or unstated) and the role asks for 4-6 years, treat it as a STRONG match and DO NOT penalize for seniority. The candidate considers these "Startup Senior" roles a perfect fit.
+
 Return strictly formatted JSON only containing:
 is_fake_remote (boolean)
 hidden_restriction (string or null)

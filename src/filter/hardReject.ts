@@ -22,6 +22,13 @@ const REJECT_SENIORITY = [
   'graduate position',
   '0-1 year',
   '0-2 years experience',
+  'staff engineer',
+  'staff software engineer',
+  'principal engineer',
+  'principal software engineer',
+  'vp of engineering',
+  'director of engineering',
+  'head of engineering'
 ];
 
 // Stack rejects (only when these are the primary/only stack)
@@ -59,6 +66,19 @@ const REJECT_STACK = [
   'embedded engineer',
   'firmware engineer',
   'firmware developer',
+
+  // Other specific domain mismatches seen in logs
+  'privacy engineer',
+  'delivery lead',
+  'tech consultant',
+  'sap ewm',
+  'meteorologist',
+  'c programmer',
+  'c developer', // Distinct from C#
+  'c++ developer',
+  'c++ engineer',
+  'ux designer',
+  'ui designer',
 ];
 
 // On-site detection keywords
