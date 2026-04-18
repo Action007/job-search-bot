@@ -14,7 +14,7 @@ export function stripHtml(html: string): string {
 
 function normalizeDate(raw: string | null): string {
   if (!raw) return new Date().toISOString();
-  if (/^\d{4}/.test(raw)) return raw; // already ISO
+  if (/^\d{4}/.test(raw)) return raw;
   const match = raw.match(/(\d+)\s+(minute|hour|day)/);
   if (!match) return new Date().toISOString();
   const [, n, unit] = match;
@@ -22,6 +22,20 @@ function normalizeDate(raw: string | null): string {
     { minute: 60_000, hour: 3_600_000, day: 86_400_000 }[unit]! *
     parseInt(n);
   return new Date(Date.now() - ms).toISOString();
+}
+
+function collapseRepeatedText(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) return normalized;
+
+  const half = normalized.length / 2;
+  if (Number.isInteger(half)) {
+    const left = normalized.slice(0, half).trim();
+    const right = normalized.slice(half).trim();
+    if (left && left === right) return left;
+  }
+
+  return normalized.replace(/\b(.{3,}?)\s+\1\b/gi, '$1');
 }
 
 export function normalizeJob(
@@ -42,10 +56,10 @@ export function normalizeJob(
     short_id: hashString.slice(0, 6),
     url: canonicalUrl,
     url_hash: hashString,
-    title_co_hash: tcHash(raw.title, raw.company ?? ''),
-    title: raw.title.trim().slice(0, 200),
-    company: (raw.company ?? '').trim().slice(0, 100),
-    location: (raw.location ?? '').trim().slice(0, 100),
+    title_co_hash: tcHash(collapseRepeatedText(raw.title), collapseRepeatedText(raw.company ?? '')),
+    title: collapseRepeatedText(raw.title).slice(0, 200),
+    company: collapseRepeatedText(raw.company ?? '').slice(0, 100),
+    location: collapseRepeatedText(raw.location ?? '').slice(0, 100),
     description: raw.description
       ? stripHtml(raw.description).slice(0, 5_000)
       : null,

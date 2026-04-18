@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { isFakeRemote } from './fakeRemote';
+import { hasRequiredStackSignal } from './hardReject';
 
 export function scoreJob(
   title: string,
@@ -15,7 +16,6 @@ export function scoreJob(
 
   let score = 30;
 
-  // --- Stack bonuses ---
   if (/react|reactjs/.test(all)) score += 18;
   else score -= 6;
   if (/typescript/.test(all)) score += 12;
@@ -24,8 +24,8 @@ export function scoreJob(
   if (/node\.?js|nodejs/.test(d)) score += 8;
   if (/nestjs|nest\.js/.test(d)) score += 10;
   if (/graphql|postgresql|postgres/.test(d)) score += 5;
+  if (!hasRequiredStackSignal(all)) score -= 20;
 
-  // --- Remote quality (else-if chain, except fake-remote penalty stacks) ---
   if (
     /worldwide|work from anywhere|anywhere in the world|location.?agnostic|globally distributed/.test(
       all
@@ -42,7 +42,6 @@ export function scoreJob(
     score -= 12;
   }
 
-  // --- Company type bonuses ---
   if (/\bstartup\b|seed funded|series [ab]|early.?stage/.test(all)) score += 8;
   if (/\bagency\b|outsource|outsourcing|client.?facing|b2b/.test(all)) score += 8;
   if (/distributed team|async.?first|no office|small team|international team/.test(all)) score += 5;
@@ -60,21 +59,17 @@ export function scoreJob(
     score -= 5;
   }
 
-  // Region specific penalties
   if (/latin america|latam/.test(l)) score -= 15;
   if (/\bindia\b/.test(l) && !/worldwide|global/.test(all)) score -= 10;
 
-  // Fake-remote penalty stacks on top of the above
   if (isFakeRemote(all)) score -= 15;
 
-  // --- Language ---
   if (/russian|русский|рус\.\s?яз/.test(d)) {
     score += 5;
     if (/english/.test(d)) score += 10;
   }
   if (/ukrainian required|ukrainian language/.test(d)) score -= 40;
 
-  // --- Seniority ---
   if (/\b(senior|sr\.|lead|staff|principal)\b/.test(t)) {
     score -= 10;
   } else if (/\b(mid.?level|middle)\b/.test(t)) {

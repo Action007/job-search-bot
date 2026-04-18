@@ -1,4 +1,3 @@
-// Language rejects
 const REJECT_LANGUAGE = [
   'ukrainian language required',
   'fluent ukrainian',
@@ -8,7 +7,6 @@ const REJECT_LANGUAGE = [
   'вільне володіння українською',
 ];
 
-// Seniority rejects
 const REJECT_SENIORITY = [
   'junior developer',
   'junior frontend',
@@ -35,7 +33,6 @@ const REJECT_SENIORITY = [
   'chief technology officer',
 ];
 
-// Clearance & Citizenship rejects
 const REJECT_CLEARANCE = [
   'security clearance',
   'active secret clearance',
@@ -56,7 +53,6 @@ const REJECT_RELOCATION = [
   'relocate to',
 ];
 
-// Stack rejects (only when these are the primary/only stack)
 const REJECT_STACK = [
   'java developer',
   'java engineer',
@@ -115,29 +111,23 @@ const REJECT_STACK = [
   'embedded engineer',
   'firmware engineer',
   'firmware developer',
-
-  // Other specific domain mismatches seen in logs
   'privacy engineer',
   'delivery lead',
   'tech consultant',
   'sap ewm',
   'meteorologist',
   'c programmer',
-  'c developer', // Distinct from C#
+  'c developer',
   'c++ developer',
   'c++ engineer',
   'ux designer',
   'ui designer',
-
-  // Additional stacks
   'rust developer',
   'rust engineer',
   'angular developer',
   'angular engineer',
   'vue developer',
   'vue engineer',
-
-  // Non-software-dev roles
   'data scientist',
   'data engineer',
   'machine learning',
@@ -176,7 +166,6 @@ const REQUIRED_JS_TS_SIGNALS = [
   'full-stack',
 ];
 
-// On-site detection keywords
 const REJECT_ONSITE = [
   'on-site',
   'onsite',
@@ -185,13 +174,8 @@ const REJECT_ONSITE = [
   'office only',
 ];
 
-// Hybrid detection keyword
 const REJECT_HYBRID = ['hybrid'];
-
-// Cyprus and Malta are the only allowed non-remote locations
 const ALLOWED_LOCAL = ['cyprus', 'malta'];
-
-// Remote signals that exempt a job from location-based rejection
 const REMOTE_SIGNALS = ['remote', 'worldwide', 'global', 'work from anywhere'];
 
 const RESTRICTED_REMOTE_PATTERNS: RegExp[] = [
@@ -224,8 +208,8 @@ function stackReject(title: string): boolean {
   return REJECT_STACK.some((kw) => t.includes(kw));
 }
 
-function missingJsTsSignalReject(text: string): boolean {
-  return !REQUIRED_JS_TS_SIGNALS.some((signal) => text.includes(signal));
+export function hasRequiredStackSignal(text: string): boolean {
+  return REQUIRED_JS_TS_SIGNALS.some((signal) => text.includes(signal));
 }
 
 function clearanceReject(text: string): boolean {
@@ -248,13 +232,8 @@ function locationReject(
   const loc = location.toLowerCase();
   const all = (title + ' ' + description + ' ' + location).toLowerCase();
 
-  // Cyprus/Malta local jobs are always allowed
   if (ALLOWED_LOCAL.some((a) => loc.includes(a))) return false;
-
-  // On-site outside Cyprus/Malta → hard reject
   if (REJECT_ONSITE.some((kw) => all.includes(kw))) return true;
-
-  // Hybrid outside Cyprus/Malta without remote signal → hard reject
   if (REJECT_HYBRID.some((kw) => all.includes(kw))) {
     const hasRemoteSignal = REMOTE_SIGNALS.some((rs) => all.includes(rs));
     if (!hasRemoteSignal) return true;
@@ -273,7 +252,6 @@ export function isHardReject(
     languageReject(text) ||
     seniorityReject(text) ||
     stackReject(title) ||
-    missingJsTsSignalReject(text) ||
     clearanceReject(text) ||
     relocationReject(text) ||
     restrictedRemoteReject(text) ||

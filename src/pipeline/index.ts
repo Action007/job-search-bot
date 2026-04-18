@@ -28,7 +28,6 @@ function isPidRunning(pid: number): boolean {
 export async function runPipeline(
   runType: 'morning' | 'evening'
 ): Promise<void> {
-  // Lockfile guard — prevent concurrent runs
   if (existsSync(LOCK)) {
     const rawLock = readFileSync(LOCK, 'utf8').trim();
 
@@ -74,10 +73,8 @@ export async function runPipeline(
     createRun(runId, runType);
     logger.info({ runId, runType }, 'Pipeline started');
 
-    // 1. Session check
     await checkCookieAge(config.LINKEDIN_COOKIES_PATH);
 
-    // 2. Scrape
     let rawJobs;
     try {
       rawJobs = await runScraper(runId);
@@ -95,18 +92,15 @@ export async function runPipeline(
     const scrapedCount = rawJobs.length;
     logger.info({ scrapedCount }, 'Scraping complete');
 
-    // 3. Normalize
     const normalized = rawJobs
       .map((r) => normalizeJob(r, runId))
       .filter((j): j is NonNullable<typeof j> => j !== null);
 
     logger.info({ normalized: normalized.length }, 'Normalization complete');
 
-    // 4. Dedup
     const unique = dedup(normalized);
     logger.info({ unique: unique.length }, 'Dedup complete');
 
-    // 5. Stage 1: Base ruling
     const preliminaryScored: ScoredJob[] = [];
     const rejectedBuffer: ScoredJob[] = [];
 
@@ -134,18 +128,15 @@ export async function runPipeline(
       }
     }
 
-    // 6. Stage 2: Select Shortlist for LLM Evaluation
     const shortlist = preliminaryScored.filter(
-      (j) => j.score >= 45 // Skip obvious noise before LLM evaluation
+      (j) => j.score >= config.SCORE_MAYBE
     );
 
     logger.info({ shortlisted: shortlist.length }, 'Base scoring complete, moving to description hydration');
 
-    // 7. Enrinch Descriptions
     await enrichWithDescriptions(shortlist, config.MAX_LLM_EVALS_PER_RUN);
     logger.info('Description hydration complete, moving to AI evaluation phase');
 
-    // 8. Execute LLM evaluations
     const scored: ScoredJob[] = [];
     const postHydrationRejected: ScoredJob[] = [];
     let llmEvals = 0;
@@ -164,7 +155,6 @@ export async function runPipeline(
 
         job.score += llmResult.score_adjustment;
 
-        // V2 context bounds
         if (job.score > 100) job.score = 100;
         if (job.score < 0) job.score = 0;
         job.tier = getTier(job.score);
@@ -210,7 +200,6 @@ export async function runPipeline(
       'LLM scoring pass complete'
     );
 
-    // 9. Filter sendable (high + maybe)
     const sendable = scored.filter(
       (j) => j.tier === 'high' || j.tier === 'maybe'
     );
@@ -223,7 +212,6 @@ export async function runPipeline(
       return;
     }
 
-    // 7. Build digest items
     const digestItems: TelegramDigestItem[] = sendable.map((j) => ({
       short_id: j.short_id,
       title: j.title,
@@ -243,7 +231,6 @@ export async function runPipeline(
       duration: Date.now() - startMs,
     };
 
-    // 8. Send digest (unless DRY_RUN)
     if (!config.DRY_RUN) {
       await sendDigest(digestItems, stats);
       for (const j of sendable) {
@@ -269,11 +256,10 @@ export async function runPipeline(
       `❌ Pipeline error: ${err.message}\nRun ID: ${runId}`
     );
     completeRun(runId, 'failed', 0, 0, Date.now() - startMs, err.message);
-  } finally {
+    } finally {
     try {
       unlinkSync(LOCK);
     } catch {
-      // lockfile already removed
     }
   }
 }

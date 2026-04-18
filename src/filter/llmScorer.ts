@@ -39,7 +39,7 @@ export async function evaluateJobContext(
 ): Promise<LLMScoreResult> {
   const apiKey = config.OPENAI_API_KEY;
   if (!apiKey) {
-    return DEFAULT_RESULT; // Safe fallback for V1 configurations
+    return DEFAULT_RESULT;
   }
 
   const cvText = getCVText();
@@ -50,7 +50,6 @@ export async function evaluateJobContext(
 CANDIDATE PROFILE SUMMARY:
 - 4+ years of experience (willing to apply for "Senior" roles asking 5-6 years)
 - Primary stack: React, Next.js, TypeScript, Node.js, NestJS, PostgreSQL
-- Secondary stack: Java, Spring Boot
 - Target roles: Frontend Developer, Full-Stack Developer, Software Engineer (web)
 - NOT interested in: DevOps, SRE, Data Science, ML/AI, QA, Mobile (native), Embedded, UX/UI Design, Consulting, Management, or any non-software-engineering role
 - Preferred work: Remote-first, globally hiring teams where the candidate can work from Azerbaijan without relocation
@@ -72,9 +71,9 @@ SCORING RULES (follow strictly):
 
 3. STACK FIT:
    - React is required for a strong match.
-   - strong: Role's primary tech is React/Next.js/TypeScript with optional Node.js/NestJS/Java/Spring Boot
-   - partial: Role clearly uses React/TypeScript but also mentions other stacks; do NOT over-penalize mixed-stack jobs just because Python, Go, Java, or cloud tools appear alongside the core web stack
-   - weak: Role's primary tech is completely different (C++, Rust, Go backend, .NET, PHP, Ruby, DevOps, data, QA, mobile, etc.)
+   - strong: Role's primary tech is React/Next.js/TypeScript with optional Node.js/NestJS/PostgreSQL
+   - partial: Role clearly uses React/TypeScript but also mentions adjacent tools or secondary backend technologies
+   - weak: Role's primary tech is completely different (C++, Rust, Java/Spring, Go backend, .NET, PHP, Ruby, DevOps, data, QA, mobile, etc.)
 
 4. COMPANY FIT:
    - Prefer early-stage startups, agencies, outsourcing firms, and remote-first international teams.
@@ -138,7 +137,6 @@ ${cvText}`;
     const jsonStr = data.choices[0].message.content;
     const parsed = JSON.parse(jsonStr) as Partial<LLMScoreResult>;
 
-    // Bound the numeric effect
     let safeAdjustment = Number(parsed.score_adjustment) || 0;
     if (safeAdjustment > 20) safeAdjustment = 20;
     if (safeAdjustment < -20) safeAdjustment = -20;

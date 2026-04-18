@@ -5,6 +5,7 @@ import { config } from '../config';
 import { SEARCH_QUERIES, SELECTORS } from './constants';
 import { RawLinkedInJob, SearchQuery } from '../types';
 import { logger } from '../utils/logger';
+import { stripHtml } from '../parsing/normalize';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
@@ -33,7 +34,6 @@ async function createContextAndPage(browser: any, cookies: any[]) {
 }
 
 async function scroll(page: Page): Promise<void> {
-  // Wait to ensure the page is focused
   await delay(1000, 2000);
 
   const containerKeys = [
@@ -46,18 +46,14 @@ async function scroll(page: Page): Promise<void> {
   try {
     const listElement = await page.waitForSelector(listSelector, { timeout: 5000 });
     if (listElement) {
-      // Hover over the list container to ensure hardware wheel events target it
       await listElement.hover();
-      
-      // Click slightly inside the bounding box so 'PageDown' keypresses work
+
       const box = await listElement.boundingBox();
       if (box) {
         await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       }
     }
   } catch (e) {
-    // If we can't find it, fallback to hovering the left side (25%) of the screen 
-    // where the job list usually resides. Center (50%) targets the right-side detail pane!
     const viewportSize = page.viewportSize();
     if (viewportSize) {
       await page.mouse.move(viewportSize.width * 0.25, viewportSize.height / 2);
@@ -66,25 +62,17 @@ async function scroll(page: Page): Promise<void> {
   }
 
   for (let i = 0; i < MAX_SCROLL_CYCLES; i++) {
-    // 1. First, send a native OS-level hardware wheel scroll
-    // This perfectly bypasses React CSS-module container obfuscation
     await page.mouse.wheel(0, 800);
-    
-    // Send PageDown to assist if the scrollable container is focused
     await page.keyboard.press('PageDown');
-    
-    // 2. Also try standard window/container scrolling
+
     await page.evaluate((keys) => {
       window.scrollBy(0, 800);
-      
-      // Fallback for known containers if they exist
+
       for (const sel of keys) {
         const el = document.querySelector(sel);
         if (el) el.scrollBy(0, 800);
       }
-      
-      // Nuclear fallback: find and scroll any DOM element with an active overflow 
-      // This is especially useful for nested React Native Web <ScrollView> wrappers
+
       document.querySelectorAll('*').forEach(node => {
         try {
           const style = window.getComputedStyle(node);
@@ -92,12 +80,10 @@ async function scroll(page: Page): Promise<void> {
             node.scrollBy(0, 800);
           }
         } catch {
-          // ignore potential detached node errors
         }
       });
     }, containerKeys);
-    
-    // Give the React lazy-loader time to fetch the JSON payload
+
     await delay(1000, 1800);
   }
 }
@@ -567,7 +553,6 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
       return output;
     };
 
-    // 1. Classic structural layout parsing
     if (document.querySelector(sel.jobCard)) {
       Array.from(document.querySelectorAll(sel.jobCard))
         .slice(0, 60)
@@ -583,8 +568,6 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
         });
     }
 
-    // 2. Newer LinkedIn markup fallback:
-    // job cards often include a dismiss button whose aria-label embeds the title.
     const dismissButtons = Array.from(
       document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Dismiss "]')
     );
@@ -633,8 +616,6 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
       });
     }
 
-    // 3. React UI obfuscated layout fallback
-    // We look for any card containing LinkedIn job impression metadata.
     const cards = Array.from(
       document.querySelectorAll(
         'div[data-view-tracking-scope*="JobImpressionEventV2"], div[data-view-tracking-scope*="FlagshipSearchServedEvent"]'
@@ -643,25 +624,15 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
 
     for (const card of cards) {
       const html = card.innerHTML;
-      
-      // Extract Job ID from URIs like urn:li:fs_normalized_jobPosting:12345
       const urnMatch = html.match(/urn:li:fs_normalized_jobPosting:(\d+)/);
       if (!urnMatch) continue;
-      
+
       const jobId = urnMatch[1];
       const url = `https://www.linkedin.com/jobs/view/${jobId}/`;
-      
-      // In the new layout, core details are often just sequenced <p> tags
+
       const pTags = Array.from(card.querySelectorAll('p')).map(p => p.textContent?.trim() ?? '');
-      
-      // Remove empty tags or things like "·"
       const validText = pTags.filter(t => t.length > 2 && !t.includes('Be an early applicant'));
-      
-      // Heuristic:
-      // validText[0] -> Title (e.g. "Software Engineer I - Junior Level")
-      // validText[1] -> Company (e.g. "Mercor")
-      // validText[2] -> Location (e.g. "Germany (Remote)")
-      // Or if verified badges mess up the DOM, we can rely on image alt texts for company
+
       const img = card.querySelector('img');
       let companyFallback = img ? img.getAttribute('alt')?.trim() : null;
       if (!companyFallback && validText[1]) companyFallback = validText[1];
@@ -671,7 +642,7 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
         company: companyFallback || 'Unknown Company',
         location: validText[1] !== companyFallback ? validText[2] || validText[1] : validText[2] || 'Unknown Location',
         url,
-        posted_at: new Date().toISOString(), // Fallback if time tag is deeply obscured
+        posted_at: new Date().toISOString(),
         description: null,
       });
     }
@@ -842,7 +813,7 @@ export async function enrichWithDescriptions(
   let fetchCount = 0;
   for (const job of jobs) {
     if (fetchCount >= maxFetches) break;
-    if (!job.url || job.description !== null) continue; // Skip if no URL or already has description
+    if (!job.url || job.description !== null) continue;
 
     try {
       await page.goto(job.url, {
@@ -856,18 +827,9 @@ export async function enrichWithDescriptions(
         .first()
         .textContent({ timeout: 5_000 })
         .catch(() => null);
-        
+
       if (desc) {
-         // Perform HTML stripping manually inside string scope to decouple from generic parser logic
-        job.description = desc
-           .replace(/<br\s*\/?>/gi, '\n')
-           .replace(/<\/p>/gi, '\n')
-           .replace(/<[^>]+>/g, ' ')
-           .replace(/&nbsp;/g, ' ')
-           .replace(/&amp;/g, '&')
-           .replace(/\s+/g, ' ')
-           .trim()
-           .slice(0, 5_000);
+        job.description = stripHtml(desc).slice(0, 5_000);
       }
       logger.info({ url: job.url }, 'hydrated full description');
       fetchCount++;
