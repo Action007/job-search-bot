@@ -19,12 +19,13 @@ const envSchema = z.object({
   CRON_EVENING: z.string().default('0 18 * * *'),
 
   // Scoring thresholds
-  SCORE_HIGH: z.coerce.number().default(70),
-  SCORE_MAYBE: z.coerce.number().default(40),
+  SCORE_HIGH: z.coerce.number().default(65),
+  SCORE_MAYBE: z.coerce.number().default(45),
 
   // Scraping
   MAX_DETAIL_FETCHES: z.coerce.number().default(30),
   MAX_RUN_DURATION_MS: z.coerce.number().default(1_200_000),
+  LINKEDIN_POSTED_WITHIN: z.string().default('r86400'),
 
   // Deduplication
   DEDUP_WINDOW_DAYS: z.coerce.number().default(14),
@@ -41,7 +42,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
 
   // V2 LLM
-  OPENAI_API_KEY: z.string().default(''), // Empty allowed for V1 fallback
+  OPENAI_API_KEY: z.string().default(''),
   OPENAI_API_URL: z.string().default('https://api.openai.com/v1'),
   LLM_MODEL: z.string().default('gpt-5-nano'),
   MAX_LLM_EVALS_PER_RUN: z.coerce.number().default(45),

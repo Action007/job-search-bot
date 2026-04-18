@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { checkCookieAge } from '../linkedin/sessionCheck';
@@ -14,16 +14,58 @@ import { ScoredJob, TelegramDigestItem, RunStats } from '../types';
 import { sendAlert, sendDigest } from '../telegram/sender';
 
 const LOCK = '/tmp/linkedin-bot.lock';
+const LEGACY_LOCK_STALE_MS = 5 * 60 * 1000;
+
+function isPidRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function runPipeline(
   runType: 'morning' | 'evening'
 ): Promise<void> {
   // Lockfile guard — prevent concurrent runs
   if (existsSync(LOCK)) {
-    logger.warn('Another run is already active — skipping');
-    return;
+    const rawLock = readFileSync(LOCK, 'utf8').trim();
+
+    try {
+      const parsedLock = JSON.parse(rawLock) as { pid?: number; startedAt?: number };
+      const lockAge = Date.now() - Number(parsedLock.startedAt);
+      const pid = Number(parsedLock.pid);
+
+      if (
+        Number.isFinite(parsedLock.startedAt) &&
+        Number.isFinite(pid) &&
+        isPidRunning(pid) &&
+        lockAge <= config.MAX_RUN_DURATION_MS
+      ) {
+        logger.warn({ pid, lockAge }, 'Another run is already active — skipping');
+        return;
+      }
+
+      logger.warn({ pid, lockAge }, 'Stale lock detected — clearing it');
+      unlinkSync(LOCK);
+    } catch {
+      const legacyStartedAt = Number(rawLock);
+      const legacyAge = Date.now() - legacyStartedAt;
+
+      if (Number.isFinite(legacyStartedAt) && legacyAge <= LEGACY_LOCK_STALE_MS) {
+        logger.warn({ legacyAge }, 'Another run is already active — skipping');
+        return;
+      }
+
+      logger.warn({ legacyAge }, 'Legacy stale lock detected — clearing it');
+      unlinkSync(LOCK);
+    }
   }
-  writeFileSync(LOCK, String(Date.now()));
+  writeFileSync(
+    LOCK,
+    JSON.stringify({ pid: process.pid, startedAt: Date.now() })
+  );
 
   const runId = randomUUID();
   const startMs = Date.now();
@@ -79,6 +121,7 @@ export async function runPipeline(
       } else {
         const score = scoreJob(
           job.title,
+          job.company,
           job.location,
           job.description ?? ''
         );
@@ -93,7 +136,7 @@ export async function runPipeline(
 
     // 6. Stage 2: Select Shortlist for LLM Evaluation
     const shortlist = preliminaryScored.filter(
-      (j) => j.score >= 35 // High, Maybe, and borderline Skip
+      (j) => j.score >= 45 // Skip obvious noise before LLM evaluation
     );
 
     logger.info({ shortlisted: shortlist.length }, 'Base scoring complete, moving to description hydration');
@@ -104,10 +147,11 @@ export async function runPipeline(
 
     // 8. Execute LLM evaluations
     const scored: ScoredJob[] = [];
+    const postHydrationRejected: ScoredJob[] = [];
     let llmEvals = 0;
 
-    for (const job of preliminaryScored) {
-      if (job.score >= 35 && llmEvals < config.MAX_LLM_EVALS_PER_RUN && job.description) {
+    for (const job of shortlist) {
+      if (llmEvals < config.MAX_LLM_EVALS_PER_RUN && job.description) {
         logger.info({ title: job.title, company: job.company }, 'Sending job context to AI Evaluator');
         
         const llmResult = await evaluateJobContext(
@@ -136,6 +180,18 @@ export async function runPipeline(
           'AI Evaluator complete'
         );
       }
+    }
+
+    for (const job of preliminaryScored) {
+      if (isHardReject(job.title, job.description ?? '', job.location)) {
+        postHydrationRejected.push({
+          ...job,
+          score: -1,
+          tier: 'reject',
+          stack: detectStack(job.title, job.description ?? ''),
+        });
+        continue;
+      }
 
       saveJob(job);
       scored.push(job);
@@ -145,7 +201,14 @@ export async function runPipeline(
       saveJob(rejected);
     }
 
-    logger.info({ finalScored: scored.length, llmEvals }, 'LLM scoring pass complete');
+    for (const rejected of postHydrationRejected) {
+      saveJob(rejected);
+    }
+
+    logger.info(
+      { finalScored: scored.length, rejectedAfterHydration: postHydrationRejected.length, llmEvals },
+      'LLM scoring pass complete'
+    );
 
     // 9. Filter sendable (high + maybe)
     const sendable = scored.filter(
@@ -154,7 +217,7 @@ export async function runPipeline(
 
     if (sendable.length === 0) {
       await sendAlert(
-        `ℹ️ No new jobs found in ${runType} run.\nSession may be stale — check cookies.`
+        `ℹ️ No sendable jobs found in ${runType} run.\nScraping worked, but everything was filtered out or down-ranked. Check query logs for gated or location-restricted results.`
       );
       completeRun(runId, 'complete', scrapedCount, 0, Date.now() - startMs);
       return;

@@ -32,7 +32,7 @@ const REJECT_SENIORITY = [
   'engineering manager',
   'software engineering manager',
   'cto',
-  'chief technology officer'
+  'chief technology officer',
 ];
 
 // Clearance & Citizenship rejects
@@ -48,12 +48,44 @@ const REJECT_CLEARANCE = [
   'only u.s. citizens'
 ];
 
+const REJECT_RELOCATION = [
+  'visa sponsorship required',
+  'requires visa sponsorship',
+  'must relocate',
+  'relocation required',
+  'relocate to',
+];
+
 // Stack rejects (only when these are the primary/only stack)
 const REJECT_STACK = [
+  'java developer',
+  'java engineer',
+  'java software engineer',
+  'spring developer',
+  'spring engineer',
+  'spring boot developer',
+  'spring boot engineer',
+  'backend developer',
+  'backend engineer',
+  'back-end developer',
+  'back-end engineer',
+
   'php developer',
   'php engineer',
   'laravel developer',
   'laravel engineer',
+
+  'python developer',
+  'python engineer',
+  'django developer',
+  'django engineer',
+  'flask developer',
+  'flask engineer',
+
+  'golang developer',
+  'golang engineer',
+  'go developer',
+  'go engineer',
 
   'ruby on rails',
   'ruby developer',
@@ -96,22 +128,15 @@ const REJECT_STACK = [
   'c++ engineer',
   'ux designer',
   'ui designer',
-  
+
   // Additional stacks
-  'python developer',
-  'python engineer',
-  'django developer',
-  'golang developer',
-  'golang engineer',
-  'go developer',
-  'go engineer',
   'rust developer',
   'rust engineer',
   'angular developer',
   'angular engineer',
   'vue developer',
   'vue engineer',
-  
+
   // Non-software-dev roles
   'data scientist',
   'data engineer',
@@ -127,7 +152,28 @@ const REJECT_STACK = [
   'site reliability engineer',
   'sre engineer',
   'salesforce developer',
-  'servicenow developer'
+  'servicenow developer',
+  'react native developer',
+  'react native engineer',
+  'react native tech lead',
+];
+
+const REQUIRED_JS_TS_SIGNALS = [
+  'javascript',
+  'typescript',
+  'react',
+  'reactjs',
+  'next.js',
+  'nextjs',
+  'node.js',
+  'nodejs',
+  'nest.js',
+  'nestjs',
+  'frontend',
+  'front-end',
+  'fullstack',
+  'full stack',
+  'full-stack',
 ];
 
 // On-site detection keywords
@@ -148,6 +194,23 @@ const ALLOWED_LOCAL = ['cyprus', 'malta'];
 // Remote signals that exempt a job from location-based rejection
 const REMOTE_SIGNALS = ['remote', 'worldwide', 'global', 'work from anywhere'];
 
+const RESTRICTED_REMOTE_PATTERNS: RegExp[] = [
+  /\b(us|usa|united states|canada|uk|united kingdom|germany|poland|netherlands|romania|portugal|czech republic)\s+only\b/,
+  /\b(eu|eea|europe)\s+only\b/,
+  /remote\s+(within|in|only in)\s+/,
+  /must\s+be\s+(based|located|residing)\s+in/,
+  /must\s+live\s+in/,
+  /must\s+reside\s+in/,
+  /must\s+remain\s+in/,
+  /currently\s+(located|based)\s+in/,
+  /open\s+to\s+candidates\s+(based|located)\s+in/,
+  /applications?\s+accepted\s+only\s+from/,
+  /authorized\s+to\s+work\s+in/,
+  /right\s+to\s+work\s+in/,
+  /eligible\s+to\s+work\s+in/,
+  /timezone\s*:\s*(gmt|cet|cest|est|pst|mst|uk|eu|europe)/,
+];
+
 function languageReject(text: string): boolean {
   return REJECT_LANGUAGE.some((kw) => text.includes(kw));
 }
@@ -156,12 +219,25 @@ function seniorityReject(text: string): boolean {
   return REJECT_SENIORITY.some((kw) => text.includes(kw));
 }
 
-function stackReject(text: string): boolean {
-  return REJECT_STACK.some((kw) => text.includes(kw));
+function stackReject(title: string): boolean {
+  const t = title.toLowerCase();
+  return REJECT_STACK.some((kw) => t.includes(kw));
+}
+
+function missingJsTsSignalReject(text: string): boolean {
+  return !REQUIRED_JS_TS_SIGNALS.some((signal) => text.includes(signal));
 }
 
 function clearanceReject(text: string): boolean {
   return REJECT_CLEARANCE.some((kw) => text.includes(kw));
+}
+
+function relocationReject(text: string): boolean {
+  return REJECT_RELOCATION.some((kw) => text.includes(kw));
+}
+
+function restrictedRemoteReject(text: string): boolean {
+  return RESTRICTED_REMOTE_PATTERNS.some((re) => re.test(text));
 }
 
 function locationReject(
@@ -196,8 +272,11 @@ export function isHardReject(
   return (
     languageReject(text) ||
     seniorityReject(text) ||
-    stackReject(text) ||
+    stackReject(title) ||
+    missingJsTsSignalReject(text) ||
     clearanceReject(text) ||
+    relocationReject(text) ||
+    restrictedRemoteReject(text) ||
     locationReject(title, description, location)
   );
 }

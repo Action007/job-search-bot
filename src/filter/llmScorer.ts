@@ -53,29 +53,41 @@ CANDIDATE PROFILE SUMMARY:
 - Secondary stack: Java, Spring Boot
 - Target roles: Frontend Developer, Full-Stack Developer, Software Engineer (web)
 - NOT interested in: DevOps, SRE, Data Science, ML/AI, QA, Mobile (native), Embedded, UX/UI Design, Consulting, Management, or any non-software-engineering role
-- Preferred work: Remote-first or Cyprus/Malta on-site
+- Preferred work: Remote-first, globally hiring teams where the candidate can work from Azerbaijan without relocation
+- Preferred company types: early-stage startups, small-to-mid agencies, outsourcing firms, distributed international teams
+- Avoid: big corporations, strict location-restricted remote, relocation requirements, visa-sponsorship requirements, senior-only roles
 - Languages: English (C1), Russian (C1), Turkish (C1), Azerbaijani (C2)
 
 SCORING RULES (follow strictly):
 
-1. SENIORITY & COMPENSATION:
-   - "Senior" titles with 4-6 years required and modest pay (≤$40/hr, ≤€80k, or unstated): treat as STRONG match, score_adjustment +5 to +15
-   - "Senior" titles with 8+ years strictly required OR high comp (>$80k-$90k USD/yr, >$40/hr): PENALIZE HEAVILY (-15 to -20)
-   - If compensation is NOT stated in the description, assume it is modest — do NOT penalize for seniority alone
+1. GEOGRAPHY RULES:
+   - Candidate is in Azerbaijan. Jobs that say "Remote" but are limited to a specific country/region, require local work authorization, or require relocation should be marked is_fake_remote=true and score_adjustment -15 to -20.
+   - Jobs explicitly open worldwide, work-from-anywhere, location-agnostic, or remote-first distributed should score highest.
+   - Europe-only remote is acceptable but weaker than worldwide remote.
 
-2. STACK FIT:
-   - strong: Role's primary tech is React/Next.js/TypeScript/Node.js/NestJS
-   - partial: Role uses the candidate's tech but also requires significant tech they lack (e.g., Python, Go, AWS, Kubernetes)
-   - weak: Role's primary tech is completely different (C++, Rust, Go, .NET, PHP, Ruby, etc.)
+2. SENIORITY & COMPENSATION:
+   - Mid-level roles are preferred.
+   - Mildly senior roles can still fit if requirements are realistic, but senior-only / lead-heavy expectations should be penalized.
+   - If compensation is NOT stated, do not assume the role is too senior based on title alone.
 
-3. DOMAIN FIT:
+3. STACK FIT:
+   - React is required for a strong match.
+   - strong: Role's primary tech is React/Next.js/TypeScript with optional Node.js/NestJS/Java/Spring Boot
+   - partial: Role clearly uses React/TypeScript but also mentions other stacks; do NOT over-penalize mixed-stack jobs just because Python, Go, Java, or cloud tools appear alongside the core web stack
+   - weak: Role's primary tech is completely different (C++, Rust, Go backend, .NET, PHP, Ruby, DevOps, data, QA, mobile, etc.)
+
+4. COMPANY FIT:
+   - Prefer early-stage startups, agencies, outsourcing firms, and remote-first international teams.
+   - Penalize obvious big-corporation or enterprise-consulting roles unless the remote freedom and stack fit are exceptionally strong.
+
+5. DOMAIN FIT:
    - If the role is NOT a software engineering/development role (e.g., meteorology, finance research, voice acting, PPC management, consulting), set cv_fit to "weak" and score_adjustment to -20
 
-4. FAKE REMOTE DETECTION:
+6. FAKE REMOTE DETECTION:
    - Set is_fake_remote=true if the job says "remote" but then requires: specific US state residency, regular office visits, on-site days, or citizenship/clearance that the candidate cannot satisfy
    - Set is_fake_remote=false otherwise
 
-5. HIDDEN RESTRICTIONS:
+7. HIDDEN RESTRICTIONS:
    - Flag any dealbreakers buried in the description: security clearance, citizenship requirements, language requirements the candidate doesn't meet, mandatory relocation
 
 Return ONLY valid JSON with these fields:
