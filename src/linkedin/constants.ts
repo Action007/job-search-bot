@@ -55,6 +55,8 @@ const EU_MARKETS = [
   'Finland',
   'Sweden',
   'Denmark',
+  'Switzerland',
+  'Norway',
 ];
 
 const AMERICAS_MARKETS = [
@@ -67,15 +69,20 @@ const AMERICAS_MARKETS = [
   'Colombia',
   'Uruguay',
   'Costa Rica',
+  'Australia',
 ];
 
 const NEARBY_MARKETS = [
   'Georgia',
-  'Armenia',
   'Kazakhstan',
   'Serbia',
   'Ukraine',
   'Moldova',
+  'Uzbekistan',
+  'Turkey',
+  'Israel',
+  'United Arab Emirates',
+  'Singapore',
 ];
 
 const GLOBAL_MARKETS: Array<Pick<SearchQuery, 'location' | 'geoId'>> = [

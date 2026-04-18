@@ -14,6 +14,15 @@ const MAX_SCROLL_CYCLES = 10;
 const MAX_PAGINATION_PAGES = 10;
 const PAGINATION_LIST_SELECTOR = 'ul[data-testid="pagination-controls-list"]';
 
+type ResultsPaneDebug = {
+  jobCardCount: number;
+  dismissButtonCount: number;
+  jobLinkCount: number;
+  impressionCardCount: number;
+  visibleJobIdsSample: string[];
+  scrollHeights: number[];
+};
+
 async function delay(min: number, max: number): Promise<void> {
   await new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 }
@@ -86,6 +95,41 @@ async function scroll(page: Page): Promise<void> {
 
     await delay(1000, 1800);
   }
+}
+
+async function getResultsPaneDebug(page: Page): Promise<ResultsPaneDebug> {
+  return page.evaluate(() => {
+    const visibleJobIdsSample = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('a[href*="/jobs/view/"]')
+    )
+      .map((a) => a.getAttribute('href') ?? '')
+      .map((href) => {
+        const match = href.match(/\/jobs\/view\/(\d+)/);
+        return match ? match[1] : null;
+      })
+      .filter((id): id is string => !!id)
+      .slice(0, 10);
+
+    const scrollHeights = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="lazy-column"], .jobs-search-results-list, .scaffold-layout__list'
+      )
+    )
+      .map((el) => el.scrollHeight)
+      .filter((value) => Number.isFinite(value))
+      .slice(0, 5);
+
+    return {
+      jobCardCount: document.querySelectorAll('.job-card-container').length,
+      dismissButtonCount: document.querySelectorAll('button[aria-label^="Dismiss "]').length,
+      jobLinkCount: document.querySelectorAll('a[href*="/jobs/view/"]').length,
+      impressionCardCount: document.querySelectorAll(
+        'div[data-view-tracking-scope*="JobImpressionEventV2"], div[data-view-tracking-scope*="FlagshipSearchServedEvent"]'
+      ).length,
+      visibleJobIdsSample,
+      scrollHeights,
+    };
+  });
 }
 
 async function getPageFingerprint(page: Page): Promise<string> {
@@ -709,6 +753,7 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
           })
           .catch(() => null);
 
+        const paneDebug = await getResultsPaneDebug(page);
         const pageJobs = await extractCards(page);
         jobs.push(...pageJobs);
 
@@ -720,6 +765,12 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
             geoId: q.geoId,
             page: pageCount,
             count: pageJobs.length,
+            domJobCardCount: paneDebug.jobCardCount,
+            domDismissButtonCount: paneDebug.dismissButtonCount,
+            domJobLinkCount: paneDebug.jobLinkCount,
+            domImpressionCardCount: paneDebug.impressionCardCount,
+            visibleJobIdsSample: paneDebug.visibleJobIdsSample,
+            scrollHeights: paneDebug.scrollHeights,
           },
           'results page scraped'
         );
