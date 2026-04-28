@@ -57,6 +57,9 @@ const REJECT_STACK = [
   'java developer',
   'java engineer',
   'java software engineer',
+  'java full stack developer',
+  'java fullstack developer',
+  'java backend developer',
   'spring developer',
   'spring engineer',
   'spring boot developer',
@@ -148,6 +151,15 @@ const REJECT_STACK = [
   'react native tech lead',
 ];
 
+const BACKEND_ONLY_SIGNALS = [
+  'java',
+  'spring',
+  'spring boot',
+  'kotlin',
+  'scala',
+  'hibernate',
+];
+
 const REQUIRED_JS_TS_SIGNALS = [
   'javascript',
   'typescript',
@@ -208,6 +220,13 @@ function stackReject(title: string): boolean {
   return REJECT_STACK.some((kw) => t.includes(kw));
 }
 
+function backendOnlyReject(text: string): boolean {
+  const hasPreferredStack =
+    /\b(react|reactjs|next\.?js|node\.?js|nodejs|nestjs|nest\.js)\b/.test(text);
+  const hasBackendOnlySignal = BACKEND_ONLY_SIGNALS.some((kw) => text.includes(kw));
+  return hasBackendOnlySignal && !hasPreferredStack;
+}
+
 export function hasRequiredStackSignal(text: string): boolean {
   return REQUIRED_JS_TS_SIGNALS.some((signal) => text.includes(signal));
 }
@@ -252,6 +271,7 @@ export function isHardReject(
     languageReject(text) ||
     seniorityReject(text) ||
     stackReject(title) ||
+    backendOnlyReject(text) ||
     clearanceReject(text) ||
     relocationReject(text) ||
     restrictedRemoteReject(text) ||

@@ -47,6 +47,8 @@ export interface RunStats {
 }
 
 export interface SearchQuery {
+  id: string;
+  label: string;
   keywords: string;
   location: string;
   geoId?: string;

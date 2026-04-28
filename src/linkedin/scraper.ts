@@ -23,6 +23,41 @@ type ResultsPaneDebug = {
   scrollHeights: number[];
 };
 
+type ExtractedCardsSummary = {
+  totalCount: number;
+  uniqueUrlCount: number;
+  fallbackOnlyCount: number;
+  uniqueUrlIdsSample: string[];
+};
+
+type QueryRunSummary = {
+  totalCount: number;
+  uniqueUrlCount: number;
+  fallbackOnlyCount: number;
+  uniqueUrlIdsSample: string[];
+  domJobCardCount: number;
+  domJobLinkCount: number;
+  domDismissButtonCount: number;
+};
+
+function extractLinkedInJobId(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+
+  const patterns = [
+    /\/jobs\/view\/(?:[^/?#]+-)?(\d+)(?:[/?#]|$)/i,
+    /[?&](?:currentJobId|jobId)=(\d+)(?:[&#]|$)/i,
+    /urn:li:(?:fs_normalized_)?jobPosting:(\d+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+
+  return null;
+}
+
 async function delay(min: number, max: number): Promise<void> {
   await new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 }
@@ -99,14 +134,28 @@ async function scroll(page: Page): Promise<void> {
 
 async function getResultsPaneDebug(page: Page): Promise<ResultsPaneDebug> {
   return page.evaluate(() => {
+    const extractJobId = (raw: string | null | undefined): string | null => {
+      const value = raw?.trim();
+      if (!value) return null;
+
+      const patterns = [
+        /\/jobs\/view\/(?:[^/?#]+-)?(\d+)(?:[/?#]|$)/i,
+        /[?&](?:currentJobId|jobId)=(\d+)(?:[&#]|$)/i,
+        /urn:li:(?:fs_normalized_)?jobPosting:(\d+)/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = value.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+
+      return null;
+    };
+
     const visibleJobIdsSample = Array.from(
       document.querySelectorAll<HTMLAnchorElement>('a[href*="/jobs/view/"]')
     )
-      .map((a) => a.getAttribute('href') ?? '')
-      .map((href) => {
-        const match = href.match(/\/jobs\/view\/(\d+)/);
-        return match ? match[1] : null;
-      })
+      .map((a) => extractJobId(a.getAttribute('href')))
       .filter((id): id is string => !!id)
       .slice(0, 10);
 
@@ -120,7 +169,7 @@ async function getResultsPaneDebug(page: Page): Promise<ResultsPaneDebug> {
       .slice(0, 5);
 
     return {
-      jobCardCount: document.querySelectorAll('.job-card-container').length,
+      jobCardCount: document.querySelectorAll('.job-card-container, .base-card.job-search-card, .base-card.base-search-card').length,
       dismissButtonCount: document.querySelectorAll('button[aria-label^="Dismiss "]').length,
       jobLinkCount: document.querySelectorAll('a[href*="/jobs/view/"]').length,
       impressionCardCount: document.querySelectorAll(
@@ -167,14 +216,31 @@ async function getPageFingerprint(page: Page): Promise<string> {
 
 async function getVisibleJobIds(page: Page): Promise<string[]> {
   return page.evaluate(() => {
+    const extractJobId = (raw: string | null | undefined): string | null => {
+      const value = raw?.trim();
+      if (!value) return null;
+
+      const patterns = [
+        /\/jobs\/view\/(?:[^/?#]+-)?(\d+)(?:[/?#]|$)/i,
+        /[?&](?:currentJobId|jobId)=(\d+)(?:[&#]|$)/i,
+        /urn:li:(?:fs_normalized_)?jobPosting:(\d+)/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = value.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+
+      return null;
+    };
+
     const ids = new Set<string>();
 
     Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="/jobs/view/"]'))
       .slice(0, 12)
       .forEach((a) => {
-        const href = a.getAttribute('href') ?? '';
-        const match = href.match(/\/jobs\/view\/(\d+)/);
-        if (match) ids.add(match[1]);
+        const jobId = extractJobId(a.getAttribute('href'));
+        if (jobId) ids.add(jobId);
       });
 
     Array.from(document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Dismiss "]'))
@@ -218,6 +284,24 @@ async function getPaginationState(page: Page): Promise<{
   hasPaginationList: boolean;
 }> {
   return page.evaluate((paginationSelector) => {
+    const extractJobId = (raw: string | null | undefined): string | null => {
+      const value = raw?.trim();
+      if (!value) return null;
+
+      const patterns = [
+        /\/jobs\/view\/(?:[^/?#]+-)?(\d+)(?:[/?#]|$)/i,
+        /[?&](?:currentJobId|jobId)=(\d+)(?:[&#]|$)/i,
+        /urn:li:(?:fs_normalized_)?jobPosting:(\d+)/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = value.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+
+      return null;
+    };
+
     const paginationList = document.querySelector(paginationSelector);
     const paginationRoot = paginationList?.parentElement ?? paginationList ?? null;
 
@@ -226,9 +310,8 @@ async function getPaginationState(page: Page): Promise<{
       Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="/jobs/view/"]'))
         .slice(0, 12)
         .forEach((a) => {
-          const href = a.getAttribute('href') ?? '';
-          const match = href.match(/\/jobs\/view\/(\d+)/);
-          if (match) ids.add(match[1]);
+          const jobId = extractJobId(a.getAttribute('href'));
+          if (jobId) ids.add(jobId);
         });
 
       return {
@@ -271,9 +354,8 @@ async function getPaginationState(page: Page): Promise<{
     Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="/jobs/view/"]'))
       .slice(0, 12)
       .forEach((a) => {
-        const href = a.getAttribute('href') ?? '';
-        const match = href.match(/\/jobs\/view\/(\d+)/);
-        if (match) ids.add(match[1]);
+        const jobId = extractJobId(a.getAttribute('href'));
+        if (jobId) ids.add(jobId);
       });
 
     return {
@@ -456,10 +538,20 @@ async function goToNextPage(page: Page): Promise<{
           document.querySelectorAll<HTMLAnchorElement>('a[href*="/jobs/view/"]')
         )
           .slice(0, 12)
-          .map((a) => {
-            const href = a.getAttribute('href') ?? '';
-            const match = href.match(/\/jobs\/view\/(\d+)/);
-            return match ? match[1] : href;
+          .map((a) => a.getAttribute('href') ?? '')
+          .map((href) => {
+            const patterns = [
+              /\/jobs\/view\/(?:[^/?#]+-)?(\d+)(?:[/?#]|$)/i,
+              /[?&](?:currentJobId|jobId)=(\d+)(?:[&#]|$)/i,
+              /urn:li:(?:fs_normalized_)?jobPosting:(\d+)/i,
+            ];
+
+            for (const pattern of patterns) {
+              const match = href.match(pattern);
+              if (match?.[1]) return match[1];
+            }
+
+            return href;
           })
           .filter(Boolean);
 
@@ -552,7 +644,8 @@ function persistQueryResult(
   requestedUrl: string,
   resolvedUrl: string,
   count: number,
-  status: 'ok' | 'gated'
+  status: 'ok' | 'gated',
+  summary?: QueryRunSummary
 ): void {
   mkdirSync(dirname(QUERY_LOG_PATH), { recursive: true });
   appendFileSync(
@@ -560,6 +653,8 @@ function persistQueryResult(
     JSON.stringify({
       ts: new Date().toISOString(),
       runId,
+      queryId: query.id,
+      queryLabel: query.label,
       keywords: query.keywords,
       location: query.location,
       geoId: query.geoId ?? null,
@@ -567,6 +662,12 @@ function persistQueryResult(
       resolvedUrl,
       count,
       status,
+      extractedUniqueUrlCount: summary?.uniqueUrlCount ?? null,
+      extractedFallbackOnlyCount: summary?.fallbackOnlyCount ?? null,
+      extractedUniqueUrlIdsSample: summary?.uniqueUrlIdsSample ?? [],
+      domJobCardCount: summary?.domJobCardCount ?? null,
+      domJobLinkCount: summary?.domJobLinkCount ?? null,
+      domDismissButtonCount: summary?.domDismissButtonCount ?? null,
     }) + '\n'
   );
 }
@@ -574,14 +675,39 @@ function persistQueryResult(
 async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
   return page.evaluate((sel) => {
     const parsed: RawLinkedInJob[] = [];
-    const seen = new Set<string>();
+    const seenKeys = new Set<string>();
+    const seenTextKeysWithUrl = new Set<string>();
+    const extractJobId = (raw: string | null | undefined): string | null => {
+      const value = raw?.trim();
+      if (!value) return null;
+
+      const patterns = [
+        /\/jobs\/view\/(?:[^/?#]+-)?(\d+)(?:[/?#]|$)/i,
+        /[?&](?:currentJobId|jobId)=(\d+)(?:[&#]|$)/i,
+        /urn:li:(?:fs_normalized_)?jobPosting:(\d+)/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = value.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+
+      return null;
+    };
 
     const push = (job: RawLinkedInJob) => {
-      const key =
-        job.url?.trim() ||
-        `${job.title ?? ''}::${job.company ?? ''}::${job.location ?? ''}`;
-      if (!key || seen.has(key)) return;
-      seen.add(key);
+      const normalizedTitle = job.title?.replace(/\s+/g, ' ').trim() ?? '';
+      const normalizedCompany = job.company?.replace(/\s+/g, ' ').trim() ?? '';
+      const normalizedLocation = job.location?.replace(/\s+/g, ' ').trim() ?? '';
+      const textKey = `${normalizedTitle}::${normalizedCompany}::${normalizedLocation}`;
+      const urlKey = job.url?.trim() ?? '';
+      const key = urlKey || textKey;
+
+      if (!key || seenKeys.has(key)) return;
+      if (!urlKey && seenTextKeysWithUrl.has(textKey)) return;
+
+      seenKeys.add(key);
+      if (urlKey) seenTextKeysWithUrl.add(textKey);
       parsed.push(job);
     };
 
@@ -597,7 +723,9 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
       return output;
     };
 
-    if (document.querySelector(sel.jobCard)) {
+    const hasClassicCards = !!document.querySelector(sel.jobCard);
+
+    if (hasClassicCards) {
       Array.from(document.querySelectorAll(sel.jobCard))
         .slice(0, 60)
         .forEach((card) => {
@@ -611,6 +739,41 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
           });
         });
     }
+
+    Array.from(document.querySelectorAll(sel.baseSearchCard))
+      .slice(0, 60)
+      .forEach((card) => {
+        const link =
+          (card.querySelector('a.base-card__full-link[href*="/jobs/view/"]') as HTMLAnchorElement | null) ??
+          (card.querySelector('a[href*="/jobs/view/"]') as HTMLAnchorElement | null);
+        const href = link?.href ?? null;
+        const jobId = extractJobId(href ?? card.innerHTML);
+        const url = href ?? (jobId ? `https://www.linkedin.com/jobs/view/${jobId}/` : null);
+
+        const title =
+          card.querySelector('.base-search-card__title, h3.base-search-card__title')?.textContent?.trim() ??
+          link?.textContent?.trim() ??
+          null;
+        const company =
+          card.querySelector('.base-search-card__subtitle, h4.base-search-card__subtitle')?.textContent?.trim() ??
+          null;
+        const location =
+          card.querySelector('.job-search-card__location, .base-search-card__metadata')?.textContent?.trim() ??
+          null;
+        const postedAt =
+          card.querySelector('time')?.getAttribute('datetime') ??
+          card.querySelector('time')?.textContent?.trim() ??
+          null;
+
+        push({
+          title,
+          company,
+          location,
+          url,
+          posted_at: postedAt,
+          description: null,
+        });
+      });
 
     const dismissButtons = Array.from(
       document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Dismiss "]')
@@ -635,11 +798,9 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
       const href =
         (root.querySelector('a[href*="/jobs/view/"]') as HTMLAnchorElement | null)?.href ??
         null;
-      const hrefMatch = href?.match(/\/jobs\/view\/(\d+)/);
-      const inlineMatch = html.match(/\/jobs\/view\/(\d+)/);
-      const urnMatch = html.match(/urn:li:(?:fs_normalized_)?jobPosting:(\d+)/);
-      const jobId = hrefMatch?.[1] ?? inlineMatch?.[1] ?? urnMatch?.[1] ?? null;
+      const jobId = extractJobId(href) ?? extractJobId(html);
       const url = href ?? (jobId ? `https://www.linkedin.com/jobs/view/${jobId}/` : null);
+      if (hasClassicCards && !url) continue;
 
       const texts = uniq(
         Array.from(root.querySelectorAll('p')).map((node) => node.textContent)
@@ -695,6 +856,25 @@ async function extractCards(page: Page): Promise<RawLinkedInJob[]> {
   }, SELECTORS);
 }
 
+function summarizeExtractedCards(jobs: RawLinkedInJob[]): ExtractedCardsSummary {
+  const urlBackedJobs = jobs.filter((job) => !!job.url);
+  const uniqueUrlIds = Array.from(
+    new Set(
+      urlBackedJobs
+        .map((job) => job.url ?? '')
+        .map((url) => extractLinkedInJobId(url) ?? url)
+        .filter(Boolean)
+    )
+  );
+
+  return {
+    totalCount: jobs.length,
+    uniqueUrlCount: uniqueUrlIds.length,
+    fallbackOnlyCount: jobs.length - urlBackedJobs.length,
+    uniqueUrlIdsSample: uniqueUrlIds.slice(0, 10),
+  };
+}
+
 export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
   const cookies = JSON.parse(
     readFileSync(config.LINKEDIN_COOKIES_PATH, 'utf-8')
@@ -742,29 +922,56 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
       const jobs: RawLinkedInJob[] = [];
       let pageCount = 0;
       let paginationResult: Awaited<ReturnType<typeof goToNextPage>> | null = null;
+      let querySummary: QueryRunSummary = {
+        totalCount: 0,
+        uniqueUrlCount: 0,
+        fallbackOnlyCount: 0,
+        uniqueUrlIdsSample: [],
+        domJobCardCount: 0,
+        domJobLinkCount: 0,
+        domDismissButtonCount: 0,
+      };
 
       do {
         pageCount += 1;
 
         await scroll(page);
         await page
-          .waitForSelector(`${SELECTORS.jobCard}, button[aria-label^="Dismiss "]`, {
+          .waitForSelector(
+            `${SELECTORS.jobCard}, ${SELECTORS.baseSearchCard}, button[aria-label^="Dismiss "]`,
+            {
             timeout: 10_000,
-          })
+            }
+          )
           .catch(() => null);
 
         const paneDebug = await getResultsPaneDebug(page);
         const pageJobs = await extractCards(page);
+        const extractedSummary = summarizeExtractedCards(pageJobs);
         jobs.push(...pageJobs);
+        querySummary = {
+          totalCount: extractedSummary.totalCount,
+          uniqueUrlCount: extractedSummary.uniqueUrlCount,
+          fallbackOnlyCount: extractedSummary.fallbackOnlyCount,
+          uniqueUrlIdsSample: extractedSummary.uniqueUrlIdsSample,
+          domJobCardCount: paneDebug.jobCardCount,
+          domJobLinkCount: paneDebug.jobLinkCount,
+          domDismissButtonCount: paneDebug.dismissButtonCount,
+        };
 
         logger.info(
           {
             runId,
+            queryId: q.id,
+            queryLabel: q.label,
             query: q.keywords,
             location: q.location,
             geoId: q.geoId,
             page: pageCount,
-            count: pageJobs.length,
+            count: extractedSummary.totalCount,
+            extractedUniqueUrlCount: extractedSummary.uniqueUrlCount,
+            extractedFallbackOnlyCount: extractedSummary.fallbackOnlyCount,
+            extractedUniqueUrlIdsSample: extractedSummary.uniqueUrlIdsSample,
             domJobCardCount: paneDebug.jobCardCount,
             domDismissButtonCount: paneDebug.dismissButtonCount,
             domJobLinkCount: paneDebug.jobLinkCount,
@@ -798,6 +1005,8 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
         logger.info(
           {
             runId,
+            queryId: q.id,
+            queryLabel: q.label,
             query: q.keywords,
             location: q.location,
             geoId: q.geoId,
@@ -818,10 +1027,30 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
       logger.info(
         {
           runId,
+          queryId: q.id,
+          queryLabel: q.label,
           query: q.keywords,
           location: q.location,
           geoId: q.geoId,
           count: jobs.length,
+          extractedUniqueUrlCount: querySummary.uniqueUrlCount,
+          extractedFallbackOnlyCount: querySummary.fallbackOnlyCount,
+          domJobCardCount: querySummary.domJobCardCount,
+          domJobLinkCount: querySummary.domJobLinkCount,
+          domDismissButtonCount: querySummary.domDismissButtonCount,
+          urlCoverageRatio:
+            querySummary.domJobLinkCount > 0
+              ? Number(
+                  (querySummary.uniqueUrlCount / querySummary.domJobLinkCount).toFixed(2)
+                )
+              : null,
+          cardCoverageRatio:
+            querySummary.domJobCardCount > 0
+              ? Number(
+                  (querySummary.totalCount / querySummary.domJobCardCount).toFixed(2)
+                )
+              : null,
+          avgJobsPerPage: Number((jobs.length / pageCount).toFixed(2)),
           pages: pageCount,
           paginationStopReason: paginationResult?.reason ?? 'unknown',
           requestedUrl,
@@ -829,7 +1058,7 @@ export async function runScraper(runId: string): Promise<RawLinkedInJob[]> {
         },
         'query done'
       );
-      persistQueryResult(runId, q, requestedUrl, resolvedUrl, jobs.length, 'ok');
+      persistQueryResult(runId, q, requestedUrl, resolvedUrl, jobs.length, 'ok', querySummary);
       all.push(...jobs);
 
       await delay(4_000, 8_000);
